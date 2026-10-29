@@ -1,0 +1,45 @@
+body { background: #f0f2f5; }
+.card { border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+.home-feed { width: 100%; min-width: 0; max-width: 100%; }
+.home-feed .post-card { display: block; position: relative; width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; margin-bottom: 1rem; overflow: hidden; }
+.sidebar-sticky { position: sticky; top: 70px; }
+.home-sidebar .list-group { gap: .25rem; }
+.home-sidebar .list-group-item { border: 0; border-radius: .75rem; background: transparent; padding: .8rem 1rem; font-weight: 500; }
+.home-sidebar .list-group-item:hover, .home-sidebar .list-group-item:focus-visible { background: #e4e6eb; }
+.home-sidebar .list-group-item i { width: 1.25rem; color: #0d6efd; }
+.home-feed .post-card { border: 0; }
+.post-card .post-content { overflow-wrap: anywhere; }
+.post-media-container { width: 100%; max-width: 100%; min-width: 0; overflow: hidden; }
+.post-media { display: block; max-width: 100%; }
+.post-image { width: auto; height: auto; max-height: 70vh; object-fit: contain; }
+.post-video-container { display: flex; justify-content: flex-start; width: 100%; max-width: 100%; }
+.post-card video.post-video { display: block; flex: 0 1 320px; width: min(100%, 320px); max-width: 320px; height: 180px; max-height: 180px; object-fit: contain; background: #111; border-radius: .5rem; }
+#feedLoading, #feedEmpty { border-radius: 1rem; }
+.chat-box { height: 400px; overflow-y: auto; background: #fff; border-radius: 8px; padding: 10px; }
+.message { display: flex; flex-direction: column; align-items: flex-start; margin-bottom: 12px; }
+.message.me { text-align: right; }
+.message.me { align-items: flex-end; }
+.message.them { align-items: flex-start; }
+.message .bubble { display: inline-block; padding: 8px 12px; border-radius: 16px; background: #e4e6eb; }
+.message.me .bubble { background: #0d6efd; color: #fff; }
+.message-time { color: #6c757d; font-size: .7rem; margin-top: 3px; }
+.chat-avatar, .friend-avatar { flex: 0 0 auto; border-radius: 50%; object-fit: cover; background: #dee2e6; }
+.chat-avatar-placeholder, .friend-avatar-placeholder { display: inline-flex; align-items: center; justify-content: center; font-weight: 600; color: #495057; }
+.friend-avatar { width: 48px; height: 48px; }
+.chat-message-image { max-width: min(320px, 80%); max-height: 320px; object-fit: contain; border-radius: 12px; margin-top: 4px; }
+.admin-post-thumbnail { width: 96px; height: 96px; }
+.admin-post-detail-image { width: 144px; height: 144px; }
+.conversation-list { max-height: 360px; overflow-y: auto; }
+.conversation-item { width: 100%; display: flex; align-items: center; gap: 10px; border: 0; border-radius: 8px; padding: 9px; background: transparent; color: inherit; text-align: left; }
+.conversation-item:hover, .conversation-item:focus { background: #f0f2f5; }
+.conversation-details { min-width: 0; display: flex; flex-direction: column; }
+.conversation-name { color: #212529; font-weight: 600; }
+.conversation-preview { overflow: hidden; color: #6c757d; font-size: .85rem; text-overflow: ellipsis; white-space: nowrap; }
+.friend-request-card { display: flex; flex-direction: row; align-items: center; gap: 12px; }
+.friend-card { height: 100%; }
+#notifList li { cursor: pointer; }
+@media (max-width: 991.98px) {
+  .sidebar-sticky { position: static; }
+  .home-sidebar .list-group { display: flex; flex-direction: row; overflow-x: auto; padding-bottom: .35rem; }
+  .home-sidebar .list-group-item { flex: 0 0 auto; white-space: nowrap; background: #fff; }
+}

@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="fragments/header :: head"></head>
+<body>
+<div th:replace="fragments/header :: header"></div>
+<div class="container mt-3">
+  <div class="row">
+    <div class="col-md-3"><div th:replace="fragments/sidebar :: sidebar"></div></div>
+    <div class="col-md-9">
+      <h4>Search Results</h4>
+      <h5>Users</h5>
+      <div id="userResults" class="row"></div>
+      <h5 class="mt-4">Posts</h5>
+      <div id="postResults"></div>
+    </div>
+  </div>
+</div>
+<div th:replace="fragments/footer :: footer"></div>
+<script>
+async function load(){
+  const q=new URLSearchParams(window.location.search).get('q')||'';
+  if(!q){ document.getElementById('userResults').innerHTML='<p class="text-muted">Enter a query.</p>'; return; }
+  const users=await API.get('/api/users/search?keyword='+encodeURIComponent(q));
+  document.getElementById('userResults').innerHTML = users.map(u=>`<div class="col-md-4 mb-3"><div class="card p-3 text-center"><strong>${u.fullname||u.nickname||'User '+u.id}</strong><div><a class="btn btn-sm btn-primary mt-2" href="/profile?id=${u.id}">View Profile</a></div></div></div>`).join('') || 'No users found.';
+  const posts=await API.get('/api/posts/search?keyword='+encodeURIComponent(q)+'&page=0&size=20');
+  const list=posts.content||posts;
+  document.getElementById('postResults').innerHTML = list.map(p=>`<div class="card p-3 mb-2"><strong>${p.author?.fullname||p.author?.nickname||'User '+p.author?.id}</strong><p>${p.content||''}</p></div>`).join('') || 'No posts found.';
+}
+document.addEventListener('DOMContentLoaded', load);
+</script>
+</body>
+</html>

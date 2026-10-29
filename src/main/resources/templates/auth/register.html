@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="fragments/header :: head"></head>
+<body class="bg-light">
+<div th:replace="fragments/header :: publicHeader"></div>
+<div class="container mt-5">
+  <div class="row justify-content-center">
+    <div class="col-md-6">
+      <div class="card p-4">
+        <h3 class="text-center mb-3">Create Account</h3>
+        <form id="registerForm" onsubmit="register(event)" novalidate>
+          <div class="mb-3">
+            <label class="form-label">Full name <span class="text-danger">*</span></label>
+            <input id="regFullname" type="text" class="form-control" required maxlength="100"/>
+            <div class="invalid-feedback">Please enter your full name.</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Email <span class="text-danger">*</span></label>
+            <input id="regEmail" type="email" class="form-control" required maxlength="100"/>
+            <div class="invalid-feedback">Please enter a valid email address.</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Nickname <span class="text-muted">(optional)</span></label>
+            <input id="regNickname" type="text" class="form-control" maxlength="50"/>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Password <span class="text-danger">*</span></label>
+            <input id="regPassword" type="password" class="form-control" required minlength="6"/>
+            <div class="invalid-feedback">Password must be at least 6 characters.</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Confirm Password <span class="text-danger">*</span></label>
+            <input id="regConfirmPassword" type="password" class="form-control" required minlength="6"/>
+            <div class="invalid-feedback">Please confirm your password.</div>
+          </div>
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <label class="form-label">Date of Birth</label>
+              <input id="regDob" type="date" class="form-control"/>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Hometown / City</label>
+              <input id="regHometown" type="text" class="form-control" maxlength="100"/>
+            </div>
+          </div>
+          <button class="btn btn-success w-100" type="submit" id="regBtn">Sign up</button>
+          <span id="regLoading" class="spinner-border spinner-border-sm" style="display:none;"></span>
+        </form>
+        <div class="text-center mt-3">
+          <a th:href="@{/login}">Already have an account? Log in</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div th:replace="fragments/footer :: footer"></div>
+<script>
+async function register(e) {
+  e.preventDefault();
+  const btn = document.getElementById('regBtn');
+  const loading = document.getElementById('regLoading');
+  const form = document.getElementById('registerForm');
+
+  if (!form.checkValidity()) {
+    form.reportValidity();
+    return;
+  }
+
+  const email = document.getElementById('regEmail').value;
+  const password = document.getElementById('regPassword').value;
+  const confirmPassword = document.getElementById('regConfirmPassword').value;
+  const fullname = document.getElementById('regFullname').value;
+  const nickname = document.getElementById('regNickname').value;
+  const dob = document.getElementById('regDob').value || null;
+  const hometown = document.getElementById('regHometown').value || null;
+
+  if (password !== confirmPassword) {
+    showModal('error', 'Thông tin chưa hợp lệ', 'Mật khẩu nhập lại chưa khớp.');
+    return;
+  }
+
+  btn.disabled = true;
+  loading.style.display = 'inline-block';
+
+  try {
+    const res = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, confirmPassword, fullname, nickname, dob, hometown })
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      let errData;
+      try {
+        errData = JSON.parse(errorText);
+      } catch {
+        errData = { message: errorText };
+      }
+      throw new Error(errData.message || 'Registration failed');
+    }
+
+    localStorage.removeItem('token');
+    window.location.href = '/login';
+  } catch (err) {
+    showModal('error', 'Không thể đăng ký', 'Vui lòng kiểm tra email và thông tin đã nhập rồi thử lại.');
+  } finally {
+    btn.disabled = false;
+    loading.style.display = 'none';
+  }
+}
+</script>
+</body>
+</html>

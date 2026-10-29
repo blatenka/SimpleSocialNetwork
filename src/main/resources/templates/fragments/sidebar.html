@@ -1,0 +1,8 @@
+<div th:fragment="sidebar" class="list-group">
+    <a th:href="@{/home}" class="list-group-item list-group-item-action"><i class="fa fa-home me-2"></i> Newsfeed</a>
+    <a th:href="@{/profile}" class="list-group-item list-group-item-action"><i class="fa fa-user me-2"></i> My Profile</a>
+    <a th:href="@{/friends}" class="list-group-item list-group-item-action"><i class="fa fa-users me-2"></i> Friends</a>
+    <a th:href="@{/chat}" class="list-group-item list-group-item-action"><i class="fa fa-comments me-2"></i> Chat</a>
+    <a th:href="@{/search}" class="list-group-item list-group-item-action"><i class="fa fa-search me-2"></i> Search</a>
+    <a th:href="@{/admin}" class="list-group-item list-group-item-action" id="adminSidebar" style="display:none;"><i class="fa fa-shield me-2"></i> Admin Dashboard</a>
+</div>

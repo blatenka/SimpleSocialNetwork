@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="fragments/header :: head"></head>
+<body>
+<div th:replace="fragments/header :: header"></div>
+<div class="container mt-3">
+  <div class="row g-3">
+    <aside class="col-md-4 col-lg-3">
+      <div class="card p-3">
+        <h5>Conversations</h5>
+        <div id="conversationList" class="conversation-list text-muted">Loading conversations...</div>
+        <hr/>
+        <form id="userSearchForm">
+          <label for="userSearch" class="form-label">Find someone by full name</label>
+          <div class="input-group">
+            <input id="userSearch" class="form-control" maxlength="100" placeholder="Full name"/>
+            <button class="btn btn-outline-primary" type="submit" aria-label="Search users">
+              <i class="fa fa-search"></i>
+            </button>
+          </div>
+        </form>
+        <div id="userSearchResults" class="mt-2"></div>
+      </div>
+    </aside>
+    <main class="col-md-8 col-lg-9">
+      <div class="card p-3">
+        <div class="d-flex align-items-center gap-2 border-bottom pb-3 mb-3">
+          <div id="selectedAvatar"></div>
+          <h5 id="selectedName" class="mb-0">Choose a conversation</h5>
+        </div>
+        <div class="chat-box" id="chatMessages" aria-live="polite"></div>
+        <form id="chatSendForm" class="input-group mt-3">
+          <input id="chatInput" class="form-control" maxlength="5000" placeholder="Write a message..." autocomplete="off"/>
+          <label class="btn btn-outline-secondary mb-0" for="chatImageInput" title="Attach an image">
+            <i class="fa fa-image"></i>
+            <span class="visually-hidden">Attach image</span>
+          </label>
+          <input id="chatImageInput" type="file" accept="image/jpeg,image/png,image/gif,image/webp" hidden/>
+          <button id="sendButton" class="btn btn-primary" type="submit" disabled>Send</button>
+        </form>
+        <div id="chatAttachmentName" class="small text-muted mt-1"></div>
+      </div>
+    </main>
+  </div>
+</div>
+<div th:replace="fragments/footer :: footer"></div>
+<script>
+let otherId = null;
+let currentUser = null;
+let selectedUser = null;
+const renderedMessageIds = new Set();
+
+function escapeHtml(text) {
+  const element = document.createElement('div');
+  element.textContent = text || '';
+  return element.innerHTML;
+}
+
+function avatarMarkup(person, size = 40) {
+  const name = person?.fullname || person?.nickname || 'User';
+  return person?.avatarUrl
+    ? `<img class="chat-avatar" style="width:${size}px;height:${size}px" src="${escapeHtml(person.avatarUrl)}" alt="">`
+    : `<div class="chat-avatar chat-avatar-placeholder" style="width:${size}px;height:${size}px">${escapeHtml(name.charAt(0).toUpperCase())}</div>`;
+}
+
+async function loadConversations() {
+  const list = document.getElementById('conversationList');
+  try {
+    const conversations = await API.get('/api/chat/conversations');
+    list.innerHTML = conversations.map(conversation => {
+      const person = conversation.user;
+      const message = conversation.latestMessage;
+      const name = person.fullname || person.nickname || `User ${person.id}`;
+      const preview = message.content || (message.mediaUrl ? 'Photo' : '');
+      return `<button type="button" class="conversation-item" data-user-id="${person.id}">
+        ${avatarMarkup(person)}
+        <span class="conversation-details">
+          <span class="conversation-name">${escapeHtml(name)}</span>
+          <span class="conversation-preview">${escapeHtml(preview)}</span>
+        </span>
+        ${conversation.unreadCount ? `<span class="badge rounded-pill bg-primary" data-unread-count="${person.id}">${conversation.unreadCount}</span>` : ''}
+      </button>`;
+    }).join('') || '<p class="small mb-0">No conversations yet. Search for someone to start a chat.</p>';
+  } catch (error) {
+    list.innerHTML = `<p class="small text-danger mb-0">${escapeHtml(error.message || 'Could not load conversations.')}</p>`;
+  }
+}
+
+function renderMessage(message) {
+  const isMine = message.sender?.id === currentUser.id;
+  const row = document.createElement('div');
+  row.className = `message ${isMine ? 'me' : 'them'}`;
+  if (message.content) {
+    const text = document.createElement('div');
+    text.className = 'bubble';
+    text.textContent = message.content;
+    row.appendChild(text);
+  }
+  if (message.mediaUrl) {
+    const image = document.createElement('img');
+    image.className = 'chat-message-image';
+    image.src = message.mediaUrl;
+    image.alt = 'Image attachment';
+    image.loading = 'lazy';
+    row.appendChild(image);
+  }
+  const time = document.createElement('small');
+  time.className = 'message-time';
+  time.textContent = message.createdAt ? new Date(message.createdAt).toLocaleString() : '';
+  row.appendChild(time);
+  return row;
+}
+
+async function openConversation(userId, person) {
+  otherId = Number(userId);
+  selectedUser = person || null;
+  if (!selectedUser) {
+    selectedUser = await API.get(`/api/users/${otherId}/profile`);
+  }
+  document.getElementById('selectedAvatar').innerHTML = avatarMarkup(selectedUser, 48);
+  document.getElementById('selectedName').textContent =
+    selectedUser.fullname || selectedUser.nickname || `User ${selectedUser.id}`;
+  document.getElementById('sendButton').disabled = false;
+  const box = document.getElementById('chatMessages');
+  box.replaceChildren();
+  renderedMessageIds.clear();
+
+  const data = await API.get(`/api/chat/history/${otherId}?page=0&size=100`);
+  (data.content || []).slice().reverse().forEach(appendMessage);
+  box.scrollTop = box.scrollHeight;
+  await API.post(`/api/chat/read/${otherId}`, {});
+}
+
+function appendMessage(message) {
+  if (!message?.id || renderedMessageIds.has(message.id)) return;
+  renderedMessageIds.add(message.id);
+  const box = document.getElementById('chatMessages');
+  box.appendChild(renderMessage(message));
+  box.scrollTop = box.scrollHeight;
+}
+
+function updateConversationUnread(userId, count) {
+  const conversation = document.querySelector(`#conversationList [data-user-id="${CSS.escape(String(userId))}"]`);
+  if (!conversation) return;
+  let badge = conversation.querySelector('[data-unread-count]');
+  if (Number(count) <= 0) {
+    badge?.remove();
+  } else {
+    if (!badge) {
+      badge = document.createElement('span');
+      badge.className = 'badge rounded-pill bg-primary';
+      badge.dataset.unreadCount = String(userId);
+      conversation.appendChild(badge);
+    }
+    badge.textContent = String(count);
+  }
+}
+
+window.addEventListener('aloute:chat-event', event => {
+  const payload = event.detail;
+  if (payload?.type === 'chat.message') {
+    const message = payload.message;
+    const incoming = message?.sender?.id !== currentUser?.id;
+    const otherUserId = message?.sender?.id === currentUser?.id
+      ? message?.recipientId
+      : message?.sender?.id;
+    if (Number(otherUserId) === Number(otherId)) {
+      appendMessage(message);
+      if (incoming) {
+        API.post(`/api/chat/read/${otherId}`, {})
+          .then(loadConversations)
+          .catch(error => console.error('Could not mark incoming chat as read', error));
+      }
+    } else {
+      loadConversations();
+    }
+  }
+  if (payload?.type === 'chat.unread') {
+    updateConversationUnread(payload.userId, payload.count);
+  }
+});
+
+window.addEventListener('aloute:chat-reconnected', () => {
+  loadConversations();
+  if (otherId) openConversation(otherId, selectedUser).catch(error =>
+    console.error('Could not refresh chat after reconnect', error));
+});
+
+async function searchUsers(event) {
+  event.preventDefault();
+  const keyword = document.getElementById('userSearch').value.trim();
+  const results = document.getElementById('userSearchResults');
+  if (!keyword) {
+    results.innerHTML = '<p class="small text-muted">Enter a full name to search.</p>';
+    return;
+  }
+  try {
+    const users = await API.get(`/api/users/search-by-fullname?fullname=${encodeURIComponent(keyword)}`);
+    const matches = users.filter(user => user.id !== currentUser.id);
+    results.innerHTML = matches.map(user => {
+      const name = user.fullname || user.nickname || `User ${user.id}`;
+      return `<button type="button" class="conversation-item search-result" data-user-id="${user.id}">
+        ${avatarMarkup(user, 36)}<span class="conversation-name">${escapeHtml(name)}</span>
+      </button>`;
+    }).join('') || '<p class="small text-muted">No users found.</p>';
+  } catch (error) {
+    results.innerHTML = `<p class="small text-danger">${escapeHtml(error.message || 'Search failed.')}</p>`;
+  }
+}
+
+async function sendChat(event) {
+  event.preventDefault();
+  if (!otherId) return;
+  const input = document.getElementById('chatInput');
+  const imageInput = document.getElementById('chatImageInput');
+  const file = imageInput.files && imageInput.files[0];
+  const content = input.value.trim();
+  if (!content && !file) return;
+
+  let mediaUrl = null;
+  try {
+    if (file) {
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+      if (!allowedTypes.includes(file.type)) {
+        throw new Error('Choose a JPEG, PNG, GIF, or WebP image.');
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        throw new Error('Images must be 5 MB or smaller.');
+      }
+      const formData = new FormData();
+      formData.append('file', file);
+      const upload = await API.upload('/api/media/image', formData);
+      mediaUrl = upload.url;
+    }
+
+    const sentMessage = await API.post('/api/chat/send', {
+      recipientId: otherId,
+      content: content || null,
+      mediaUrl
+    });
+    appendMessage(sentMessage);
+    input.value = '';
+    imageInput.value = '';
+    document.getElementById('chatAttachmentName').textContent = '';
+    await loadConversations();
+  } catch (error) {
+    showModal('error', 'Message could not be sent', error.message || 'Please try again.');
+  }
+}
+
+document.getElementById('conversationList').addEventListener('click', event => {
+  const button = event.target.closest('[data-user-id]');
+  if (button) openConversation(button.dataset.userId).catch(error =>
+    showModal('error', 'Conversation could not be opened', error.message));
+});
+
+document.getElementById('userSearchResults').addEventListener('click', event => {
+  const button = event.target.closest('[data-user-id]');
+  if (button) openConversation(button.dataset.userId).catch(error =>
+    showModal('error', 'Conversation could not be opened', error.message));
+});
+
+document.getElementById('userSearchForm').addEventListener('submit', searchUsers);
+document.getElementById('chatSendForm').addEventListener('submit', sendChat);
+document.getElementById('chatImageInput').addEventListener('change', event => {
+  const file = event.target.files && event.target.files[0];
+  document.getElementById('chatAttachmentName').textContent = file ? file.name : '';
+});
+
+document.addEventListener('DOMContentLoaded', async () => {
+  try {
+    currentUser = await getCurrentUser();
+    await loadConversations();
+    const userId = new URLSearchParams(window.location.search).get('userId');
+    if (userId) await openConversation(userId);
+  } catch (error) {
+    showModal('error', 'Chat unavailable', error.message || 'Could not load your account.');
+  }
+});
+</script>
+</body>
+</html>

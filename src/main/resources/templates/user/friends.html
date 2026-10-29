@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="fragments/header :: head"></head>
+<body>
+<div th:replace="fragments/header :: header"></div>
+<div class="container mt-3">
+  <div class="row">
+    <div class="col-md-3"><div th:replace="fragments/sidebar :: sidebar"></div></div>
+    <div class="col-md-9">
+      <h4>Friends</h4>
+      <div id="friendsList" class="row"></div>
+      <h4 class="mt-4">Incoming Requests</h4>
+      <div id="incoming"></div>
+      <h4 class="mt-4">Outgoing Requests</h4>
+      <div id="outgoing"></div>
+      <div id="friendsError" class="alert alert-danger mt-3" role="alert" hidden></div>
+    </div>
+  </div>
+</div>
+<div th:replace="fragments/footer :: footer"></div>
+<script>
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function renderPerson(name, avatarUrl) {
+  const safeName = escapeHtml(name);
+  const avatar = avatarUrl
+    ? `<img class="friend-avatar" src="${escapeHtml(avatarUrl)}" alt="">`
+    : `<div class="friend-avatar friend-avatar-placeholder">${safeName.charAt(0) || '?'}</div>`;
+  return `<div class="d-flex align-items-center gap-3">${avatar}<strong>${safeName}</strong></div>`;
+}
+
+function renderFriendshipRequest(request, direction) {
+  const person = direction === 'incoming' ? request.requester : request.addressee;
+  const name = person?.fullname || person?.nickname || `User ${direction === 'incoming' ? request.requesterId : request.addresseeId}`;
+  const controls = direction === 'incoming'
+    ? `<button type="button" class="btn btn-success" data-action="accept" data-id="${request.id}">Accept</button>
+       <button type="button" class="btn btn-outline-danger" data-action="decline" data-id="${request.id}">Reject</button>`
+    : `<button type="button" class="btn btn-outline-secondary" data-action="cancel" data-id="${request.id}">Cancel request</button>`;
+  return `<div class="card friend-request-card p-3 mb-2">
+    ${renderPerson(name, person?.avatarUrl)}
+    <div class="d-flex gap-2 ms-auto">${controls}</div>
+  </div>`;
+}
+
+async function loadFriends() {
+  const error = document.getElementById('friendsError');
+  error.hidden = true;
+  try {
+    const [me, friends, requests] = await Promise.all([
+      getCurrentUser(),
+      API.get('/api/friends/list'),
+      API.get('/api/friends/requests')
+    ]);
+    document.getElementById('friendsList').innerHTML = friends.map(friend => {
+      const name = friend.fullname || friend.nickname || `User ${friend.id}`;
+      return `<div class="col-md-6 col-xl-4 mb-3">
+        <div class="card friend-card p-3">
+          ${renderPerson(name, friend.avatarUrl)}
+          <div class="d-flex gap-2 mt-3">
+            <a class="btn btn-sm btn-primary" href="/profile?id=${friend.id}">View profile</a>
+            <button type="button" class="btn btn-sm btn-outline-danger" data-action="unfriend" data-id="${friend.id}">Unfriend</button>
+          </div>
+        </div>
+      </div>`;
+    }).join('') || '<p class="text-muted">You have no friends yet.</p>';
+
+    document.getElementById('incoming').innerHTML = requests
+      .filter(request => request.addresseeId === me.id)
+      .map(request => renderFriendshipRequest(request, 'incoming'))
+      .join('') || '<p class="text-muted">No incoming requests.</p>';
+    document.getElementById('outgoing').innerHTML = requests
+      .filter(request => request.requesterId === me.id)
+      .map(request => renderFriendshipRequest(request, 'outgoing'))
+      .join('') || '<p class="text-muted">No outgoing requests.</p>';
+  } catch (requestError) {
+    error.textContent = requestError.message || 'Could not load friends and requests.';
+    error.hidden = false;
+  }
+}
+
+document.addEventListener('click', async event => {
+  const button = event.target.closest('[data-action]');
+  if (!button) return;
+  const { action, id } = button.dataset;
+  const routes = {
+    accept: () => API.post(`/api/friends/accept/${id}`, {}),
+    decline: () => API.post(`/api/friends/decline/${id}`, {}),
+    cancel: () => API.del(`/api/friends/cancel/${id}`),
+    unfriend: () => API.del(`/api/friends/unfriend/${id}`)
+  };
+  if (!routes[action]) return;
+
+  button.disabled = true;
+  try {
+    await routes[action]();
+    await loadFriends();
+  } catch (requestError) {
+    button.disabled = false;
+    showModal('error', 'Friend request failed', requestError.message);
+  }
+});
+
+document.addEventListener('DOMContentLoaded', loadFriends);
+</script>
+</body>
+</html>

@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/header :: head}"></head>
+<body>
+<div th:replace="~{fragments/header :: header}"></div>
+<div class="container mt-3">
+  <div class="row">
+    <aside class="col-md-3">
+      <div th:replace="~{fragments/sidebar :: sidebar}"></div>
+      <div class="card mt-3" id="friendshipCard" style="display:none;">
+        <div class="card-body">
+          <h6 class="card-title mb-3">Friendship Status</h6>
+          <div id="friendshipStatus" class="text-muted"></div>
+        </div>
+      </div>
+      <section class="card mt-3" id="mutualFriendsCard" aria-labelledby="mutualFriendsHeading" hidden>
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h2 class="h6 mb-0" id="mutualFriendsHeading">Mutual friends</h2>
+          <span class="badge rounded-pill text-bg-secondary" id="mutualFriendsCount">0</span>
+        </div>
+        <div class="card-body">
+          <div class="text-muted small" id="mutualFriendsLoading" role="status">Loading mutual friends...</div>
+          <div class="text-danger small" id="mutualFriendsError" role="alert" hidden></div>
+          <p class="text-muted small mb-0" id="mutualFriendsEmpty" hidden>No mutual friends yet.</p>
+          <div class="list-group list-group-flush" id="mutualFriendsList"></div>
+        </div>
+      </section>
+    </aside>
+    <div class="col-md-9">
+      <div class="card mb-3" id="profileCard">
+        <div class="position-relative" style="height: 200px;">
+          <img id="coverImage" src="https://via.placeholder.com/1200x300?text=Cover+Photo" class="card-img-top" style="object-fit: cover; height: 200px; width: 100%;"/>
+          <div id="coverImageControls" class="position-absolute top-0 end-0 m-2" style="display:none;">
+            <button type="button" class="btn btn-sm btn-dark" onclick="chooseProfileImage('cover')">Change cover</button>
+          </div>
+          <div class="position-absolute bottom-0 start-0 translate-middle-bottom" style="width: 100%; padding: 10px;">
+            <img id="avatarImage" src="https://via.placeholder.com/100" class="rounded-circle shadow" style="width: 100px; height: 100px; object-fit: cover; border: 4px solid white;"/>
+            <button id="avatarImageControl" type="button" class="btn btn-sm btn-dark position-absolute" style="display:none; left:75px; bottom:10px;" onclick="chooseProfileImage('avatar')">Change avatar</button>
+          </div>
+        </div>
+        <div class="card-body d-flex align-items-start">
+          <div class="flex-grow-1 ms-3">
+            <h2 id="profileName" class="card-title mb-1">Loading...</h2>
+            <p id="profileNickname" class="text-muted mb-2"></p>
+            <p id="profileDescription" class="card-text mb-2"></p>
+            <div class="mb-2">
+              <span id="profileHometown" class="badge bg-light text-dark border"></span>
+              <span id="profileDob" class="badge bg-light text-dark border ms-2"></span>
+            </div>
+          </div>
+          <div class="d-flex gap-2">
+            <button id="editBtn" class="btn btn-outline-primary" style="display:none;" onclick="enableEdit()">Edit Profile</button>
+            <button id="messageBtn" class="btn btn-primary" style="display:none;" onclick="openChat()">Message</button>
+            <button id="friendBtn" class="btn btn-outline-success" style="display:none;" onclick="handleFriend()">Add Friend</button>
+          </div>
+        </div>
+        <div id="editForm" class="card-body" style="display:none;">
+          <form id="profileEditForm" class="row g-3">
+            <div class="col-md-6"><label class="form-label">Fullname</label><input name="fullname" class="form-control"/></div>
+            <div class="col-md-6"><label class="form-label">Nickname</label><input name="nickname" class="form-control"/></div>
+            <div class="col-12"><label class="form-label">Description</label><textarea name="description" class="form-control" rows="3"></textarea></div>
+            <div class="col-md-6"><label class="form-label">Hometown</label><input name="hometown" class="form-control"/></div>
+            <div class="col-md-6"><label class="form-label">Date of Birth</label><input name="dob" type="date" class="form-control"/></div>
+            <div class="col-12">
+              <button class="btn btn-primary" type="submit">Save Changes</button>
+              <button class="btn btn-outline-secondary ms-2" type="button" onclick="cancelEdit()">Cancel</button>
+            </div>
+          </form>
+        </div>
+        <div id="errorMsg" class="card-body text-danger text-center" style="display:none;"></div>
+      </div>
+
+      <input id="avatarImageInput" type="file" accept="image/jpeg,image/png,image/gif,image/webp" hidden/>
+      <input id="coverImageInput" type="file" accept="image/jpeg,image/png,image/gif,image/webp" hidden/>
+
+      <div class="card mb-4" aria-labelledby="profilePostsHeading">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h5 class="mb-0" id="profilePostsHeading">Posts</h5>
+          <span id="postCount" class="badge bg-secondary">0</span>
+        </div>
+        <div class="card-body" id="profilePosts">
+          <div class="text-center text-muted py-4">Loading posts...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div th:replace="~{fragments/footer :: footer}"></div>
+
+<script>
+const urlParams = new URLSearchParams(window.location.search);
+const targetEmail = urlParams.get('email');
+const targetIdParam = urlParams.get('id');
+let isOwnProfile = false;
+let targetUserId = null;
+let friendshipInfo = null;
+let originalValues = {};
+let profileData = null;
+
+async function loadProfile() {
+  const card = document.getElementById('profileCard');
+  const postsEl = document.getElementById('profilePosts');
+  const errorEl = document.getElementById('errorMsg');
+
+  try {
+    const me = await getCurrentUser().catch(() => null);
+    let userData = null;
+
+    if (targetEmail) {
+      userData = await API.get(`/api/users/by-email?email=${encodeURIComponent(targetEmail)}`);
+    } else if (targetIdParam) {
+      userData = await API.get(`/api/users/${targetIdParam}/profile`);
+    } else if (me) {
+      userData = await API.get(`/api/users/${me.id}/profile`);
+      window.history.replaceState(null, '', '/myprofile');
+    }
+
+    if (!userData) {
+      throw new Error('User not found');
+    }
+
+    targetUserId = userData.id;
+    profileData = userData;
+    displayProfile(userData);
+
+    isOwnProfile = me && (me.id === targetUserId);
+
+    const postsData = await API.get(`/api/posts/user/${targetUserId}?page=0&size=20`);
+    const posts = postsData.content || postsData;
+    document.getElementById('postCount').textContent = posts.length || 0;
+    postsEl.innerHTML = await renderPosts(posts);
+
+    if (!isOwnProfile) {
+      document.getElementById('friendBtn').style.display = 'inline-block';
+      document.getElementById('messageBtn').style.display = 'inline-block';
+      friendshipInfo = await API.get(`/api/friends/status/${targetUserId}`);
+      updateFriendshipUI(friendshipInfo);
+      loadMutualFriends(me);
+    } else {
+      document.getElementById('editBtn').style.display = 'inline-block';
+      document.getElementById('coverImageControls').style.display = 'block';
+      document.getElementById('avatarImageControl').style.display = 'inline-block';
+    }
+
+  } catch (err) {
+    errorEl.textContent = 'Failed to load profile: ' + err.message;
+    errorEl.style.display = 'block';
+    card.style.display = 'none';
+    postsEl.innerHTML = '<div class="text-center text-muted py-4">Unable to load posts.</div>';
+  }
+}
+
+async function loadMutualFriends(currentUser) {
+  const card = document.getElementById('mutualFriendsCard');
+  const loading = document.getElementById('mutualFriendsLoading');
+  const error = document.getElementById('mutualFriendsError');
+  const empty = document.getElementById('mutualFriendsEmpty');
+  const list = document.getElementById('mutualFriendsList');
+  const count = document.getElementById('mutualFriendsCount');
+  card.hidden = false;
+  try {
+    const result = await API.get(`/api/friends/mutual/${encodeURIComponent(targetUserId)}`);
+    const uniqueFriends = Array.from(new Map(
+      (Array.isArray(result.friends) ? result.friends : [])
+        .filter(friend => friend && friend.id != null)
+        .map(friend => [String(friend.id), friend])
+    ).values());
+    count.textContent = String(uniqueFriends.length);
+    list.replaceChildren();
+    uniqueFriends.forEach(friend => {
+      const link = document.createElement('a');
+      link.className = 'list-group-item list-group-item-action d-flex align-items-center gap-2';
+      link.href = Number(friend.id) === Number(currentUser?.id)
+        ? '/myprofile'
+        : friend.email ? `/profile?email=${encodeURIComponent(friend.email)}` : '#';
+      if (link.href.endsWith('#')) link.setAttribute('aria-disabled', 'true');
+
+      const name = friend.fullname || friend.nickname || `User ${friend.id}`;
+      const avatar = document.createElement(friend.avatarUrl ? 'img' : 'span');
+      avatar.className = 'rounded-circle border';
+      avatar.style.width = '40px';
+      avatar.style.height = '40px';
+      avatar.style.objectFit = 'cover';
+      avatar.alt = friend.avatarUrl ? `${name}'s avatar` : '';
+      if (friend.avatarUrl) avatar.src = friend.avatarUrl;
+      else {
+        avatar.classList.add('bg-light', 'd-inline-flex', 'align-items-center', 'justify-content-center');
+        avatar.textContent = name.trim().charAt(0).toUpperCase() || '?';
+      }
+      const label = document.createElement('span');
+      label.className = 'fw-semibold';
+      label.textContent = name;
+      link.append(avatar, label);
+      list.appendChild(link);
+    });
+    empty.hidden = uniqueFriends.length > 0;
+  } catch (requestError) {
+    error.textContent = requestError.message || 'Mutual friends could not be loaded.';
+    error.hidden = false;
+  } finally {
+    loading.hidden = true;
+  }
+}
+
+function displayProfile(userData) {
+  document.getElementById('profileName').textContent = userData.fullname || userData.nickname || 'User ' + userData.id;
+  document.getElementById('profileNickname').textContent = userData.nickname ? 'Nickname: ' + userData.nickname : '';
+  document.getElementById('profileDescription').textContent = userData.description || '';
+  document.getElementById('profileHometown').textContent = userData.hometown || 'Hometown';
+  document.getElementById('profileDob').textContent = userData.dob || 'DOB';
+
+  if (userData.avatarUrl) document.getElementById('avatarImage').src = userData.avatarUrl;
+  if (userData.coverUrl) document.getElementById('coverImage').src = userData.coverUrl;
+
+  const form = document.getElementById('profileEditForm');
+  form.fullname.value = userData.fullname || '';
+  form.nickname.value = userData.nickname || '';
+  form.description.value = userData.description || '';
+  form.hometown.value = userData.hometown || '';
+  form.dob.value = userData.dob || '';
+  originalValues = {
+    fullname: form.fullname.value, 
+    nickname: form.nickname.value, 
+    description: form.description.value, 
+    hometown: form.hometown.value, 
+    dob: form.dob.value
+  };
+}
+
+function chooseProfileImage(kind) {
+  document.getElementById(kind === 'avatar' ? 'avatarImageInput' : 'coverImageInput').click();
+}
+
+async function uploadProfileImage(kind, input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+  if (!allowedTypes.includes(file.type)) {
+    showModal('error', 'Invalid image', 'Choose a JPEG, PNG, GIF, or WebP image.');
+    input.value = '';
+    return;
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    showModal('error', 'Image too large', 'Profile images must be 5 MB or smaller.');
+    input.value = '';
+    return;
+  }
+
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    const uploaded = await API.upload('/api/media/profile-image', formData);
+    const property = kind === 'avatar' ? 'avatarUrl' : 'coverUrl';
+    await API.put(`/api/users/${targetUserId}/profile`, { [property]: uploaded.url });
+    profileData[property] = uploaded.url;
+    displayProfile(profileData);
+    showModal('success', 'Image updated', `${kind === 'avatar' ? 'Avatar' : 'Cover image'} updated successfully.`);
+  } catch (err) {
+    showModal('error', 'Upload failed', err.message || 'The image could not be uploaded.');
+  } finally {
+    input.value = '';
+  }
+}
+
+document.getElementById('avatarImageInput').addEventListener('change', event => uploadProfileImage('avatar', event.target));
+document.getElementById('coverImageInput').addEventListener('change', event => uploadProfileImage('cover', event.target));
+
+async function renderPosts(posts) {
+  if (!posts || posts.length === 0) {
+    return '<div class="text-center text-muted py-4">No posts yet.</div>';
+  }
+  
+  return posts.map(p => {
+    const author = p.author || {};
+    const authorId = author.id;
+    const authorName = author.fullname || author.nickname || 'User ' + authorId;
+    const profileUrl = `/profile?id=${authorId}`;
+
+    const mediaHtml = (p.mediaUrls && p.mediaUrls.length) ? p.mediaUrls.map(u => 
+      u.match(/\.(mp4|webm|ogg)$/i) 
+        ? `<video src="${u}" controls class="img-fluid rounded mb-2"></video>` 
+        : `<img src="${u}" class="img-fluid rounded mb-2"/>`
+    ).join('') : '';
+
+    return `
+      <div class="card post-card p-3 mb-2">
+        <div class="d-flex justify-content-between">
+          <strong>
+            <a href="${profileUrl}">${escapeHtml(authorName)}</a>
+          </strong>
+          <small class="text-muted">${new Date(p.createdAt).toLocaleString()}</small>
+        </div>
+        <p class="mt-2">${escapeHtml(p.content || '')}</p>
+        ${mediaHtml}
+        <div class="d-flex gap-2">
+          <button class="btn btn-sm btn-outline-primary" onclick="likePost('${p.id}')"><i class="fa fa-thumbs-up"></i> ${p.likeCount || 0}</button>
+          <button class="btn btn-sm btn-outline-secondary" onclick="toggleComments('${p.id}')"><i class="fa fa-comment"></i> ${p.commentCount || 0}</button>
+        </div>
+        <div id="comments-${p.id}" style="display:none;" class="mt-2"></div>
+      </div>
+    `;
+  }).join('');
+}
+
+function escapeHtml(text) {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function openChat() {
+  if (!targetUserId) return;
+  window.location.href = `/chat?userId=${targetUserId}`;
+}
+
+function updateFriendshipUI(info) {
+  const btn = document.getElementById('friendBtn');
+  const statusDiv = document.getElementById('friendshipStatus');
+  document.getElementById('friendshipCard').style.display = 'block';
+
+  const status = info.status;
+  const direction = info.direction;
+
+  if (status === 'ACCEPTED') {
+    btn.textContent = 'Unfriend';
+    btn.className = 'btn btn-outline-danger ms-2';
+    statusDiv.textContent = 'You are friends with this user.';
+  } else if (status === 'PENDING') {
+    if (direction === 'outgoing') {
+      btn.textContent = 'Request Sent';
+      btn.className = 'btn btn-outline-warning ms-2';
+      btn.disabled = true;
+      statusDiv.textContent = 'Friend request sent. Waiting for response.';
+    } else {
+      btn.textContent = 'Accept Request';
+      btn.className = 'btn btn-outline-success ms-2';
+      btn.onclick = () => acceptFriendRequest();
+      statusDiv.textContent = 'This user sent you a friend request.';
+    }
+  } else if (status === 'DENIED') {
+    btn.textContent = 'Add Friend';
+    btn.className = 'btn btn-outline-success ms-2';
+    btn.disabled = false;
+    btn.onclick = () => sendFriendRequest();
+    statusDiv.textContent = 'Previous request was denied. You can send a new request.';
+  } else {
+    btn.textContent = 'Add Friend';
+    btn.className = 'btn btn-outline-success ms-2';
+    btn.disabled = false;
+    btn.onclick = () => sendFriendRequest();
+    statusDiv.textContent = 'No existing friendship.';
+  }
+}
+
+async function sendFriendRequest() {
+  try {
+    await API.post(`/api/friends/request/${targetUserId}`);
+    friendshipInfo = await API.get(`/api/friends/status/${targetUserId}`);
+    updateFriendshipUI(friendshipInfo);
+    showModal('success', 'Friend Request', 'Friend request sent successfully.');
+  } catch (err) {
+    showModal('error', 'Error', err.message || 'Failed to send friend request.');
+  }
+}
+
+async function acceptFriendRequest() {
+  showModal('info', 'Accept Request', 'Please go to the Friends page to accept incoming requests.');
+}
+
+async function handleFriend() {
+  if (!friendshipInfo) return;
+  const status = friendshipInfo.status;
+  const direction = friendshipInfo.direction;
+
+  if (status === 'ACCEPTED') {
+    showConfirm('Unfriend', 'Are you sure you want to unfriend this user?', async () => {
+      try {
+        await API.del(`/api/friends/unfriend/${targetUserId}`);
+        friendshipInfo = await API.get(`/api/friends/status/${targetUserId}`);
+        updateFriendshipUI(friendshipInfo);
+        showModal('success', 'Unfriended', 'You are no longer friends.');
+      } catch (err) {
+        showModal('error', 'Error', err.message);
+      }
+    });
+  } else if (status === 'PENDING' && direction === 'outgoing') {
+    showModal('info', 'Cancel Request', 'Please go to the Friends page to cancel outgoing requests.');
+  } else if (status === 'PENDING' && direction === 'incoming') {
+    showModal('info', 'Friend Request', 'Please go to the Friends page to accept or decline this request.');
+  } else {
+    sendFriendRequest();
+  }
+}
+
+function enableEdit() {
+  const form = document.getElementById('profileEditForm');
+  [...form.elements].forEach(el => { if (el.name) el.disabled = false; });
+  document.getElementById('editForm').style.display = 'block';
+  document.getElementById('editBtn').style.display = 'none';
+}
+
+function cancelEdit() {
+  const form = document.getElementById('profileEditForm');
+  Object.keys(originalValues).forEach(k => { if (form[k]) form[k].value = originalValues[k]; });
+  [...form.elements].forEach(el => { if (el.name) el.disabled = true; });
+  document.getElementById('editForm').style.display = 'none';
+  document.getElementById('editBtn').style.display = 'inline-block';
+}
+
+document.getElementById('profileEditForm').onsubmit = async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  const body = {
+    fullname: form.fullname.value,
+    nickname: form.nickname.value,
+    description: form.description.value,
+    hometown: form.hometown.value,
+    dob: form.dob.value || null
+  };
+  try {
+    await API.put(`/api/users/${targetUserId}/profile`, body);
+    showModal('success', 'Saved', 'Profile updated successfully.');
+    cancelEdit();
+    loadProfile();
+  } catch (err) {
+    showModal('error', 'Error', err.message || 'Failed to update profile.');
+  }
+};
+
+async function likePost(id) {
+  try {
+    await API.post(`/api/posts/${id}/like?type=LIKE`);
+    loadProfile();
+  } catch (err) {
+    showModal('error', 'Error', err.message);
+  }
+}
+
+async function toggleComments(id) {
+  const el = document.getElementById(`comments-${id}`);
+  if (el.style.display === 'none') {
+    el.style.display = 'block';
+    try {
+      const data = await API.get(`/api/comments/post/${id}?page=0&size=20`);
+      const cs = data.content || data;
+      const commentsHtml = cs.map(c => `
+        <div class="border rounded p-2 mb-1">
+          <small class="fw-bold">${escapeHtml(c.author?.fullname || c.author?.nickname || 'User')}</small>
+          <p class="mb-0">${escapeHtml(c.content)}</p>
+        </div>
+      `).join('');
+
+      el.innerHTML = commentsHtml + `
+        <div class="input-group mt-2">
+          <input id="cmt-${id}" class="form-control form-control-sm" placeholder="Write a comment..."/>
+          <button class="btn btn-sm btn-primary" onclick="addComment('${id}')">Send</button>
+        </div>`;
+    } catch (err) {
+      el.innerHTML = '<div class="text-danger small">Failed to load comments.</div>';
+    }
+  } else {
+    el.style.display = 'none';
+  }
+}
+
+async function addComment(id) {
+  const input = document.getElementById(`cmt-${id}`);
+  const content = input ? input.value : '';
+  if (!content) return;
+  try {
+    await API.post(`/api/comments/post/${id}`, { content });
+    toggleComments(id);
+    loadProfile();
+  } catch (err) {
+    showModal('error', 'Error', err.message);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', loadProfile);
+</script>
+</body>
+</html>

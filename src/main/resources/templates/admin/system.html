@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/header :: head}"></head>
+<body>
+<div th:replace="~{fragments/header :: header}"></div>
+<main class="container-fluid container-xxl py-4">
+  <div class="row g-4">
+    <aside class="col-12 col-lg-3 col-xl-2"><div th:replace="~{fragments/admin-nav :: adminNav}"></div></aside>
+    <section class="col-12 col-lg-9 col-xl-10">
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div><h1 class="h3 mb-1">System</h1><p class="text-muted mb-0">Application health and platform activity from current database records.</p></div>
+        <button id="refreshSystem" class="btn btn-outline-primary" type="button"><i class="fa fa-rotate me-1"></i>Refresh statistics</button>
+      </div>
+      <div id="systemError" class="alert alert-danger" role="alert" hidden></div>
+      <div id="systemLoading" class="text-center text-muted py-5" role="status">Loading system report...</div>
+      <section aria-labelledby="healthHeading" class="mb-4">
+        <h2 id="healthHeading" class="h5">Connectivity</h2>
+        <div id="healthCards" class="row g-3"></div>
+      </section>
+      <section aria-labelledby="trendHeading" class="mb-4">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+          <h2 id="trendHeading" class="h5 mb-0">Recent activity</h2>
+          <label class="small text-muted" for="activityRange">Date range</label>
+          <select id="activityRange" class="form-select form-select-sm" style="width:auto">
+            <option value="compare">Compare 7 and 30 days</option>
+            <option value="7">Last 7 days</option>
+            <option value="30">Last 30 days</option>
+          </select>
+        </div>
+        <div class="card border-0"><div id="activityChart" class="card-body"></div></div>
+      </section>
+      <section aria-labelledby="activityHeading">
+        <h2 id="activityHeading" class="h5">Platform activity</h2>
+        <div id="systemStats" class="row g-3" aria-live="polite"></div>
+      </section>
+      <p class="small text-muted mt-4 mb-0">Registration and post trends compare the last 7 and 30 days. Counts are read from MySQL and MongoDB.</p>
+    </section>
+  </div>
+</main>
+<div th:replace="~{fragments/footer :: footer}"></div>
+<script th:src="@{/js/admin-system.js}"></script>
+</body>
+</html>

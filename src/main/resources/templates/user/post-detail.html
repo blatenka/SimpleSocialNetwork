@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="fragments/header :: head"></head>
+<body>
+<div th:replace="fragments/header :: header"></div>
+<div class="container mt-3">
+  <div class="row">
+    <div class="col-md-3"><div th:replace="fragments/sidebar :: sidebar"></div></div>
+    <div class="col-md-9">
+      <div id="postDetail" class="card p-4" aria-live="polite">
+        <div class="text-muted text-center">Loading post...</div>
+      </div>
+    </div>
+  </div>
+</div>
+<div th:replace="fragments/footer :: footer"></div>
+<script th:src="@{/js/social-interactions.js}"></script>
+<script th:src="@{/js/post-detail.js}"></script>
+</body>
+</html>

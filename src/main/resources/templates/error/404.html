@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="fragments/header :: head"></head>
+<body class="bg-light text-center">
+<div th:replace="fragments/header :: header"></div>
+<div class="container mt-5">
+  <h1>404</h1>
+  <p>Page not found.</p>
+  <a th:href="@{/home}" class="btn btn-primary">Go Home</a>
+</div>
+<div th:replace="fragments/footer :: footer"></div>
+</body>
+</html>

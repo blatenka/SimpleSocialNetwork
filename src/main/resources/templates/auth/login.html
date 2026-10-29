@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="fragments/header :: head"></head>
+<body class="bg-light">
+<div th:replace="fragments/header :: publicHeader"></div>
+<div class="container mt-5">
+  <div class="row justify-content-center">
+    <div class="col-md-5">
+      <div class="card p-4">
+        <h3 class="text-center mb-3">Login</h3>
+        <div id="loginError" class="alert alert-danger" role="alert" hidden>
+          Sai email hoặc mật khẩu.
+        </div>
+        <form onsubmit="login(event)">
+          <div class="mb-3"><label>Email</label><input id="email" type="email" class="form-control" required/></div>
+          <div class="mb-3"><label>Password</label><input id="password" type="password" class="form-control" required/></div>
+          <button class="btn btn-primary w-100" type="submit">Login</button>
+        </form>
+        <div class="text-center mt-3">
+          <a th:href="@{/register}">Create account</a> | <a th:href="@{/forgot-password}">Forgot password?</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div th:replace="fragments/footer :: footer"></div>
+</body>
+</html>

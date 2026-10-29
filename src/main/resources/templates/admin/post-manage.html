@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/header :: head}"></head>
+<body>
+<div th:replace="~{fragments/header :: header}"></div>
+<main class="container-fluid container-xxl py-4">
+  <div class="row g-4">
+    <aside class="col-12 col-lg-3 col-xl-2"><div th:replace="~{fragments/admin-nav :: adminNav}"></div></aside>
+    <section class="col-12 col-lg-9 col-xl-10">
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div><h1 class="h3 mb-1">Posts</h1><p class="text-muted mb-0">Review and moderate published content.</p></div>
+        <button id="refreshPosts" class="btn btn-outline-primary" type="button"><i class="fa fa-rotate me-1"></i>Refresh</button>
+      </div>
+      <form id="postSearchForm" class="card card-body border-0 mb-3">
+        <div class="row g-2">
+          <div class="col-12 col-md-7"><label class="visually-hidden" for="postSearch">Search post content</label><input id="postSearch" class="form-control" maxlength="100" placeholder="Search post content"/></div>
+          <div class="col-6 col-md-3"><label class="visually-hidden" for="postSort">Sort posts</label><select id="postSort" class="form-select"><option value="createdAt">Creation date</option><option value="likeCount">Reactions</option><option value="commentCount">Comments</option><option value="content">Content</option></select></div>
+          <div class="col-6 col-md-2"><label class="visually-hidden" for="postDirection">Sort order</label><select id="postDirection" class="form-select"><option value="desc">Newest first</option><option value="asc">Oldest first</option></select></div>
+          <div class="col-12 d-grid d-md-none"><button class="btn btn-primary" type="submit">Search</button></div>
+        </div>
+      </form>
+      <div id="postsError" class="alert alert-danger" role="alert" hidden></div>
+      <div id="postsLoading" class="text-center text-muted py-4" role="status" hidden>Loading posts...</div>
+      <div id="postList" class="row g-3" aria-live="polite"></div>
+      <div class="d-flex justify-content-between align-items-center mt-3">
+        <span id="postPageLabel" class="small text-muted" aria-live="polite"></span>
+        <div class="btn-group"><button id="previousPostPage" class="btn btn-outline-secondary btn-sm" type="button">Previous</button><button id="nextPostPage" class="btn btn-outline-secondary btn-sm" type="button">Next</button></div>
+      </div>
+    </section>
+  </div>
+</main>
+<div class="modal fade" id="postDetailsModal" tabindex="-1" aria-labelledby="postDetailsTitle" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content">
+    <div class="modal-header"><h2 class="modal-title fs-5" id="postDetailsTitle">Post details</h2><button class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+    <div class="modal-body" id="postDetailsBody"><div class="text-center text-muted py-4">Loading post details...</div></div>
+    <div class="modal-footer"><button id="deletePostFromDetails" class="btn btn-danger me-auto" type="button">Delete post</button><button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Close</button></div>
+  </div></div>
+</div>
+<div th:replace="~{fragments/footer :: footer}"></div>
+<script th:src="@{/js/admin-posts.js}"></script>
+</body>
+</html>
